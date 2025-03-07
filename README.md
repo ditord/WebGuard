@@ -1,0 +1,2 @@
+# WebGuard
+Browser Security Extension
