@@ -15,6 +15,7 @@ chrome.runtime.onInstalled.addListener(() => {
   });
   
   loadApprovedSites();
+  updateRules();
 });
 
 // Load approved sites from storage
@@ -22,16 +23,30 @@ function loadApprovedSites() {
   chrome.storage.local.get(['enabled', 'approvedSites'], (result) => {
     enabled = result.enabled;
     approvedSites = result.approvedSites || [];
+    updateRules();
   });
 }
 
-// Check if URL is on approved list
-function isApprovedURL(url) {
-  const hostname = new URL(url).hostname;
-  return approvedSites.some(site => {
-    const approvedSite = site.toLowerCase();
-    const requestHostname = hostname.toLowerCase();
-    return requestHostname === approvedSite || requestHostname.endsWith('.' + approvedSite);
+// Update declarativeNetRequest rules
+function updateRules() {
+  if (!enabled) {
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1],
+      addRules: []
+    });
+    return;
+  }
+
+  const rules = approvedSites.map((site, index) => ({
+    id: index + 1,
+    priority: 1,
+    action: { type: "allow" },
+    condition: { urlFilter: `*://${site}/*` }
+  }));
+
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: Array.from({ length: approvedSites.length }, (_, i) => i + 1),
+    addRules: rules
   });
 }
 
@@ -43,6 +58,7 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.approvedSites) {
     approvedSites = changes.approvedSites.newValue;
   }
+  updateRules();
 });
 
 // Log blocked request
@@ -72,27 +88,3 @@ function notifyBlockedRequest(details) {
     priority: 2
   });
 }
-
-// Intercept and filter web requests
-chrome.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    if (!enabled) {
-      return { cancel: false };
-    }
-    const url = details.url;
-    if (url.startsWith('chrome-extension://')) {
-      return { cancel: false };
-    }
-    if (isApprovedURL(url)) {
-      return { cancel: false };
-    } else {
-      logBlockedRequest(details);
-      if (details.type === 'main_frame') {
-        notifyBlockedRequest(details);
-      }
-      return { cancel: true };
-    }
-  },
-  { urls: ["<all_urls>"] },
-  ["blocking"]
-);
