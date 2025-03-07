@@ -1,0 +1,113 @@
+<!-- popup.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebGuard</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>WebGuard</h1>
+      <div class="toggle-container">
+        <span>Protection:</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-enabled" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="tabs">
+      <button class="tab-button active" data-tab="approved-sites">Approved Sites</button>
+      <button class="tab-button" data-tab="blocked-requests">Blocked Requests</button>
+      <button class="tab-button" data-tab="settings">Settings</button>
+    </div>
+    
+    <div id="approved-sites" class="tab-content active">
+      <div class="input-group">
+        <input type="text" id="new-site" placeholder="Enter website (e.g., example.com)">
+        <button id="add-site">Add</button>
+      </div>
+      
+      <div class="action-buttons">
+        <button id="add-current">Add Current Site</button>
+        <button id="import-export">Import/Export</button>
+      </div>
+      
+      <div id="site-list" class="list-container">
+        <!-- Sites will be populated here -->
+      </div>
+    </div>
+    
+    <div id="blocked-requests" class="tab-content">
+      <div class="action-buttons">
+        <button id="clear-logs">Clear Logs</button>
+      </div>
+      
+      <div id="request-list" class="list-container">
+        <!-- Blocked requests will be populated here -->
+      </div>
+    </div>
+    
+    <div id="settings" class="tab-content">
+      <div class="setting-item">
+        <h3>Notification Settings</h3>
+        <label>
+          <input type="checkbox" id="show-notifications" checked>
+          Show notifications for blocked requests
+        </label>
+      </div>
+      
+      <div class="setting-item">
+        <h3>Protection Mode</h3>
+        <select id="protection-mode">
+          <option value="strict">Strict - Block all unapproved sites</option>
+          <option value="relaxed">Relaxed - Allow subdomains of approved sites</option>
+        </select>
+      </div>
+      
+      <div class="setting-item">
+        <button id="reset-defaults">Reset to Defaults</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="import-export-modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Import/Export Approved Sites</h2>
+      
+      <div class="modal-tabs">
+        <button class="modal-tab-button active" data-tab="export">Export</button>
+        <button class="modal-tab-button" data-tab="import">Import</button>
+      </div>
+      
+      <div id="export" class="modal-tab-content active">
+        <p>Copy the list of approved sites below:</p>
+        <textarea id="export-data" readonly></textarea>
+        <button id="copy-data">Copy to Clipboard</button>
+      </div>
+      
+      <div id="import" class="modal-tab-content">
+        <p>Paste your list of approved sites below (one domain per line):</p>
+        <textarea id="import-data"></textarea>
+        <div class="import-options">
+          <label>
+            <input type="radio" name="import-mode" value="replace" checked>
+            Replace existing list
+          </label>
+          <label>
+            <input type="radio" name="import-mode" value="merge">
+            Merge with existing list
+          </label>
+        </div>
+        <button id="import-button">Import</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
