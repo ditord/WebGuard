@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "WebGuard",
+  "name": "AllowList",
   "version": "1.0",
   "description": "A browser security extension that only allows connections to approved websites",
   "permissions": [
