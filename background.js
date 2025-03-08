@@ -1,4 +1,4 @@
-// background.js
+// Updated background.js for Manifest V3
 let enabled = true;
 let approvedSites = [];
 
@@ -15,39 +15,34 @@ chrome.runtime.onInstalled.addListener(() => {
   });
   
   loadApprovedSites();
-  updateRules();
 });
 
 // Load approved sites from storage
 function loadApprovedSites() {
   chrome.storage.local.get(['enabled', 'approvedSites'], (result) => {
-    enabled = result.enabled;
+    enabled = result.enabled !== false;
     approvedSites = result.approvedSites || [];
-    updateRules();
   });
 }
 
-// Update declarativeNetRequest rules
-function updateRules() {
-  if (!enabled) {
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [1],
-      addRules: []
+// Check if URL is on approved list
+function isApprovedURL(url) {
+  try {
+    const hostname = new URL(url).hostname;
+    
+    return approvedSites.some(site => {
+      // Convert to lowercase for case-insensitive comparison
+      const approvedSite = site.toLowerCase();
+      const requestHostname = hostname.toLowerCase();
+      
+      // Check if hostname matches or is a subdomain of approved site
+      return requestHostname === approvedSite || 
+             requestHostname.endsWith('.' + approvedSite);
     });
-    return;
+  } catch (e) {
+    console.error("Error checking URL:", e);
+    return true; // Allow in case of error
   }
-
-  const rules = approvedSites.map((site, index) => ({
-    id: index + 1,
-    priority: 1,
-    action: { type: "allow" },
-    condition: { urlFilter: `*://${site}/*` }
-  }));
-
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: Array.from({ length: approvedSites.length }, (_, i) => i + 1),
-    addRules: rules
-  });
 }
 
 // Listen for storage changes
@@ -58,33 +53,60 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.approvedSites) {
     approvedSites = changes.approvedSites.newValue;
   }
-  updateRules();
 });
 
 // Log blocked request
 function logBlockedRequest(details) {
   chrome.storage.local.get(['blockedRequests'], (result) => {
     const blockedRequests = result.blockedRequests || [];
+    
     blockedRequests.push({
       url: details.url,
       timestamp: new Date().toISOString(),
-      type: details.type
+      type: details.type || "navigation"
     });
+    
+    // Limit log size (keep last 1000 entries)
     if (blockedRequests.length > 1000) {
       blockedRequests.shift();
     }
+    
     chrome.storage.local.set({ blockedRequests });
   });
 }
 
-// Create notification for blocked request
-function notifyBlockedRequest(details) {
-  const hostname = new URL(details.url).hostname;
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: 'Connection Blocked',
-    message: `Connection to ${hostname} was blocked. Open WebGuard to add it to your approved sites.`,
-    priority: 2
-  });
-}
+// Use tabs.onUpdated to check navigation
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Only check when URL changes and has loaded
+  if (changeInfo.status === 'loading' && changeInfo.url) {
+    if (!enabled) return;
+    
+    // Skip blocking chrome:// URLs and extension pages
+    if (changeInfo.url.startsWith('chrome://') || 
+        changeInfo.url.startsWith('chrome-extension://')) {
+      return;
+    }
+    
+    // Check if URL is approved
+    if (!isApprovedURL(changeInfo.url)) {
+      // Log the blocked request
+      logBlockedRequest({
+        url: changeInfo.url,
+        type: "navigation",
+        tabId: tabId
+      });
+      
+      // Create a notification
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Connection Blocked',
+        message: `Connection to ${new URL(changeInfo.url).hostname} was blocked.`,
+        priority: 2
+      });
+      
+      // Redirect to a safe page
+      chrome.tabs.update(tabId, { url: 'chrome://newtab' });
+    }
+  }
+});
